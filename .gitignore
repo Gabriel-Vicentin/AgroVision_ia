@@ -1,0 +1,34 @@
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Banco de dados
+*.db
+*.sqlite3
+
+# Capturas e saídas do YOLO
+static/captures/
+runs/
+
+# Pesos do modelo (baixados automaticamente)
+*.pt
+*.onnx
+
+# Uploads temporários
+uploads/
+
+# Variáveis de ambiente
+.env
+
+# VS Code
+.vscode/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

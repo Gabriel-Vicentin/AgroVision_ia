@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgroVision AI</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2d;
+      --muted: #9aa7bf;
+      --text: #e5ecf7;
+      --line: #24314f;
+      --accent: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .frame {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #000;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      color: #c7d3ea;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #052e16;
+      background: #86efac;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AgroVision AI</h1>
+    <p class="subtitle">Painel de monitoramento em tempo real</p>
+
+    <section class="card">
+      <img id="liveFrame" class="frame" src="/frame" alt="Frame ao vivo da camera" />
+    </section>
+
+    <section class="card">
+      <h2>Eventos recentes</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Horario</th>
+            <th>Classe</th>
+            <th>Confianca</th>
+            <th>Evidencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in events %}
+          <tr>
+            <td>{{ e.event_time }}</td>
+            <td><span class="badge">{{ e.label }}</span></td>
+            <td>{{ "%.2f"|format(e.confidence) }}</td>
+            <td><a href="{{ e.image_path }}" target="_blank">ver imagem</a></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4">Nenhum evento registrado ainda.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const img = document.getElementById("liveFrame");
+    setInterval(() => {
+      img.src = "/frame?t=" + Date.now();
+    }, 700);
+  </script>
+</body>
+</html>
