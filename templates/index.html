@@ -4,103 +4,65 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AgroVision AI</title>
-  <style>
-    :root {
-      --bg: #0b1220;
-      --card: #111a2d;
-      --muted: #9aa7bf;
-      --text: #e5ecf7;
-      --line: #24314f;
-      --accent: #22c55e;
-    }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
-      color: var(--text);
-      padding: 24px;
-    }
-
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
-    }
-
-    .subtitle {
-      margin: 0 0 20px;
-      color: var(--muted);
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 18px;
-    }
-
-    .frame {
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: #000;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      font-size: 14px;
-    }
-
-    th {
-      color: #c7d3ea;
-      font-weight: 600;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #052e16;
-      background: #86efac;
-    }
-
-    a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/dashboard.css" />
 </head>
 <body>
+  <div class="backdrop"></div>
   <div class="container">
-    <h1>AgroVision AI</h1>
-    <p class="subtitle">Painel de monitoramento em tempo real</p>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Monitoramento operacional</p>
+        <h1>AgroVision AI</h1>
+        <p class="subtitle">Visao computacional + agente local para leitura de risco.</p>
+      </div>
+      <div class="hero-meta">
+        <div class="meta-card">
+          <span>Agente ativo</span>
+          <strong>{{ agent_name }}</strong>
+          <small>{{ agent_role }}</small>
+        </div>
+        <div class="meta-card">
+          <span>Objetivo</span>
+          <strong>{{ agent_goal }}</strong>
+        </div>
+      </div>
+    </header>
 
-    <section class="card">
-      <img id="liveFrame" class="frame" src="/frame" alt="Frame ao vivo da camera" />
+    <section class="grid">
+      <div class="card live-card">
+        <div class="card-header">
+          <h2>Camera ao vivo</h2>
+          <span id="cameraStatus" class="pill">carregando...</span>
+        </div>
+        <img id="liveFrame" class="frame" src="/frame" alt="Frame ao vivo da camera" />
+        <div class="card-footer">
+          <span id="cameraSource">Fonte: carregando...</span>
+          <span id="cameraHealth">Status: -</span>
+        </div>
+      </div>
+
+      <div class="card agent-card">
+        <div class="card-header">
+          <h2>Agente AgroVision</h2>
+          <span id="agentEvents" class="pill">0 eventos</span>
+        </div>
+        <div class="agent-context" id="agentContext">Aguardando eventos...</div>
+        <form id="chatForm" class="chat-form">
+          <textarea id="chatInput" rows="3" placeholder="Pergunte algo sobre os eventos recentes..."></textarea>
+          <button type="submit">Enviar ao agente</button>
+        </form>
+        <div id="chatLog" class="chat-log"></div>
+      </div>
     </section>
 
     <section class="card">
-      <h2>Eventos recentes</h2>
+      <div class="card-header">
+        <h2>Eventos recentes</h2>
+        <span class="pill" id="eventCount">0 registros</span>
+      </div>
       <table>
         <thead>
           <tr>
@@ -110,7 +72,7 @@
             <th>Evidencia</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="eventTable">
           {% for e in events %}
           <tr>
             <td>{{ e.event_time }}</td>
@@ -128,11 +90,6 @@
     </section>
   </div>
 
-  <script>
-    const img = document.getElementById("liveFrame");
-    setInterval(() => {
-      img.src = "/frame?t=" + Date.now();
-    }, 700);
-  </script>
+  <script src="/static/dashboard.js"></script>
 </body>
 </html>
