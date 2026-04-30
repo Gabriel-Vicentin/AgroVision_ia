@@ -36,7 +36,9 @@ async function refreshCameraStatus() {
     const response = await fetch("/camera/status");
     const data = await response.json();
     cameraSource.textContent = `Fonte: ${data.source}`;
-    cameraHealth.textContent = `Status: ${data.connected ? "online" : "offline"}`;
+    const backendLabel = data.backend ? ` (${data.backend})` : "";
+    const errorLabel = data.last_error ? ` - ${data.last_error}` : "";
+    cameraHealth.textContent = `Status: ${data.connected ? "online" : "offline"}${backendLabel}${errorLabel}`;
     setPill(cameraStatus, data.connected ? "camera online" : "camera offline", data.connected ? "ok" : "warn");
   } catch (err) {
     setPill(cameraStatus, "erro no status", "warn");

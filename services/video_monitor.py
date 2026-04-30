@@ -2,6 +2,7 @@ import os
 import time
 import uuid
 import threading
+import urllib.request
 from collections import defaultdict
 from datetime import datetime
 from typing import Dict, Generator
@@ -24,6 +25,7 @@ class VideoMonitor:
             "has_live_frame": False,
             "source": str(config.CAMERA_SOURCE),
             "source_type": config.build_camera_source_type(config.CAMERA_SOURCE),
+            "backend": None,
             "last_error": None,
         }
         self._detection_state = defaultdict(int)
@@ -107,11 +109,19 @@ class VideoMonitor:
 
     def _run(self):
         self._status["online"] = True
+        if self._status["source_type"] == "image":
+            self._run_image_stream()
+            return
         while not self._stop_event.is_set():
-            cap = cv2.VideoCapture(config.CAMERA_SOURCE)
+            cap = self._open_capture()
             self._status["connected"] = cap.isOpened()
             if not cap.isOpened():
-                self._status["last_error"] = "Falha ao abrir camera"
+                if self._status["source_type"] == "stream":
+                    self._status["last_error"] = (
+                        "Falha ao abrir camera (stream). Verifique suporte a FFmpeg/OpenCV."
+                    )
+                else:
+                    self._status["last_error"] = "Falha ao abrir camera"
                 time.sleep(config.CAMERA_RECONNECT_SECONDS)
                 continue
 
@@ -127,60 +137,110 @@ class VideoMonitor:
                 self._status["connected"] = True
                 self._status["has_live_frame"] = True
 
-                results = self._model(frame, conf=config.CONFIDENCE_THRESHOLD, verbose=False)
-
-                found_labels_in_frame = set()
-                best_conf_by_label = {}
-
-                for result in results:
-                    boxes = result.boxes
-                    if boxes is None:
-                        continue
-
-                    for box in boxes:
-                        cls_id = int(box.cls[0].item())
-                        conf = float(box.conf[0].item())
-                        label = self._model.names[cls_id]
-
-                        if label not in config.TARGET_CLASSES:
-                            continue
-
-                        found_labels_in_frame.add(label)
-                        if label not in best_conf_by_label or conf > best_conf_by_label[label]:
-                            best_conf_by_label[label] = conf
-
-                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                        self._draw_box(frame, x1, y1, x2, y2, label, conf)
-
-                for label in config.TARGET_CLASSES:
-                    if label in found_labels_in_frame:
-                        self._detection_state[label] += 1
-                    else:
-                        self._detection_state[label] = 0
-
-                for label in found_labels_in_frame:
-                    if self._detection_state[label] >= config.MIN_CONSECUTIVE_FRAMES and self._should_alert(label):
-                        event_id = str(uuid.uuid4())[:8]
-                        filename = (
-                            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}{label}{event_id}.jpg"
-                        )
-                        filepath = os.path.join(config.SAVE_DIR, filename)
-
-                        cv2.imwrite(filepath, frame)
-                        image_path = f"/static/captures/{filename}"
-
-                        confidence = best_conf_by_label.get(label, 0.0)
-                        event_repository.save_event(event_id, label, confidence, image_path)
-
-                        self._last_alert_time[label] = time.time()
-
-                with self._lock:
-                    self._last_frame = frame.copy()
+                self._process_frame(frame)
 
                 time.sleep(0.05)
 
             cap.release()
             time.sleep(config.CAMERA_RECONNECT_SECONDS)
+
+    def _run_image_stream(self):
+        self._status["backend"] = "image"
+        while not self._stop_event.is_set():
+            frame = self._read_image_frame()
+            if frame is None:
+                self._status["connected"] = False
+                if self._status["last_error"] is None:
+                    self._status["last_error"] = "Falha ao ler imagem"
+                time.sleep(config.CAMERA_RECONNECT_SECONDS)
+                continue
+
+            self._status["connected"] = True
+            self._status["has_live_frame"] = True
+            self._status["last_error"] = None
+
+            self._process_frame(frame)
+            time.sleep(0.5)
+
+    def _read_image_frame(self):
+        try:
+            with urllib.request.urlopen(config.CAMERA_SOURCE, timeout=10) as response:
+                data = response.read()
+            if not data:
+                return None
+            frame = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if frame is None:
+                return None
+            return frame
+        except Exception:
+            self._status["last_error"] = "Falha ao ler imagem"
+            return None
+
+    def _process_frame(self, frame):
+        results = self._model(frame, conf=config.CONFIDENCE_THRESHOLD, verbose=False)
+
+        found_labels_in_frame = set()
+        best_conf_by_label = {}
+
+        for result in results:
+            boxes = result.boxes
+            if boxes is None:
+                continue
+
+            for box in boxes:
+                cls_id = int(box.cls[0].item())
+                conf = float(box.conf[0].item())
+                label = self._model.names[cls_id]
+
+                if label not in config.TARGET_CLASSES:
+                    continue
+
+                found_labels_in_frame.add(label)
+                if label not in best_conf_by_label or conf > best_conf_by_label[label]:
+                    best_conf_by_label[label] = conf
+
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                self._draw_box(frame, x1, y1, x2, y2, label, conf)
+
+        for label in config.TARGET_CLASSES:
+            if label in found_labels_in_frame:
+                self._detection_state[label] += 1
+            else:
+                self._detection_state[label] = 0
+
+        for label in found_labels_in_frame:
+            if self._detection_state[label] >= config.MIN_CONSECUTIVE_FRAMES and self._should_alert(label):
+                event_id = str(uuid.uuid4())[:8]
+                filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}{label}{event_id}.jpg"
+                filepath = os.path.join(config.SAVE_DIR, filename)
+
+                cv2.imwrite(filepath, frame)
+                image_path = f"/static/captures/{filename}"
+
+                confidence = best_conf_by_label.get(label, 0.0)
+                event_repository.save_event(event_id, label, confidence, image_path)
+
+                self._last_alert_time[label] = time.time()
+
+        with self._lock:
+            self._last_frame = frame.copy()
+
+    def _open_capture(self) -> cv2.VideoCapture:
+        source = config.CAMERA_SOURCE
+        if self._status["source_type"] == "stream" and hasattr(cv2, "CAP_FFMPEG"):
+            cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
+            if cap.isOpened():
+                self._status["backend"] = "ffmpeg"
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+                return cap
+
+        cap = cv2.VideoCapture(source)
+        if cap.isOpened():
+            self._status["backend"] = "default"
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+        else:
+            self._status["backend"] = None
+        return cap
 
     def _should_alert(self, label: str) -> bool:
         now = time.time()

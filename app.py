@@ -104,4 +104,5 @@ def chat(request: ChatRequest):
         answer=result["answer"],
         model=config.OLLAMA_MODEL,
         events_in_context=len(events),
+        error=result["error"],
     )

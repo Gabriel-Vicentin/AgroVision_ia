@@ -72,6 +72,9 @@ def build_camera_source_type(source) -> str:
     if isinstance(source, int):
         return "camera"
     lowered = str(source).lower()
+    trimmed = lowered.split("?", 1)[0]
+    if trimmed.endswith((".jpg", ".jpeg", ".png")):
+        return "image"
     if lowered.startswith("rtsp") or lowered.startswith("http"):
         return "stream"
     return "file"

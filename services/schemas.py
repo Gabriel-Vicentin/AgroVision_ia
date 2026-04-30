@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -16,3 +16,4 @@ class ChatResponse(BaseModel):
     answer: str
     model: str
     events_in_context: int
+    error: Optional[str] = None
